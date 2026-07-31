@@ -1,0 +1,30 @@
+## Interface: 120007
+## Title: nugsSuite
+## Notes: One minimap button for every nugs addon.|nLaunch any of them, see what you have installed, and export or import|nall of their settings as a single shareable string.|nCreated by nugs.
+## Author: nugs
+## Version: 0.2.6
+## IconTexture: Interface\AddOns\nugsSuite\icon
+
+# NOTE: if the addon list shows a blank icon, this BLP is not loading on your
+# client. Swap the line above back to a stock game texture and nothing else breaks:
+# ## IconTexture: Interface\Icons\inv_misc_gear_01
+## SavedVariables: nugsSuiteDB
+## X-Author: nugs
+## X-Copyright: Copyright (c) 2026 nugs. All Rights Reserved.
+## X-License: All Rights Reserved
+## X-Category: UI Media
+## X-Curse-Project-ID: 1630098
+
+# NOTE: no OptionalDeps and no Dependencies, deliberately. The suite discovers the
+# other addons at runtime through a plain global, so listing them here would only
+# reorder loading for no gain, and a missing addon must never hold this one back.
+
+# NOTE: bump the Interface number above to match your current retail patch if the
+# game flags this addon as "out of date". Find it with:  /run print((select(4,GetBuildInfo())))
+
+
+Core.lua
+Serialize.lua
+Profiles.lua
+Options.lua
+Minimap.lua
