@@ -40,7 +40,10 @@ local C = {
 
 local ADDON_ICON = "Interface\\AddOns\\nugsSuite\\icon"
 
-local WIDTH, HEIGHT = 640, 566
+-- Taller than it needs to be for four addons, because the roster is what this window
+-- is for and scrolling to see the family defeats the point of listing it. Still well
+-- inside the 768 units WoW guarantees, so it fits on any supported resolution.
+local WIDTH, HEIGHT = 640, 612
 local CONTENT_W = WIDTH - 24
 local CARD_H    = 74
 
@@ -210,6 +213,133 @@ local function Check(parent, text, getter, setter, tooltip)
     end
     b:Refresh()
     return b
+end
+
+-- Wheel-scrolled area with a bar you can grab. Same helper the other nugs addons
+-- carry, duplicated rather than shared for the usual reason: a shared file between
+-- addons would be a load-order dependency.
+--
+-- The roster needs this because the catalog grows. It was a plain frame whose height
+-- was the addon count times the card height, with the footer hanging off its bottom -
+-- so the seventh addon pushed the checkbox and the hint clean out of the window.
+local function ScrollArea(parent)
+    local scroll = CreateFrame("ScrollFrame", nil, parent)
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(1, 1)
+    scroll:SetScrollChild(content)
+    scroll.content = content
+
+    -- BAR_W is the grab area and is wider than the 3px line you can see, because a
+    -- 3px target is not something anybody can reliably hit. The whole bar hides when
+    -- everything fits, so it never eats a click on a card underneath it.
+    local BAR_W = 9
+
+    local bar = CreateFrame("Frame", nil, scroll)
+    bar:SetPoint("TOPRIGHT", 0, 0)
+    bar:SetPoint("BOTTOMRIGHT", 0, 0)
+    bar:SetWidth(BAR_W)
+    bar:EnableMouse(true)
+
+    local track = bar:CreateTexture(nil, "ARTWORK")
+    track:SetPoint("TOPRIGHT", 0, 0)
+    track:SetPoint("BOTTOMRIGHT", 0, 0)
+    track:SetWidth(3)
+    track:SetColorTexture(1, 1, 1, 0.05)
+
+    local thumb = CreateFrame("Frame", nil, bar)
+    thumb:SetWidth(BAR_W)
+    thumb:EnableMouse(true)
+    local thumbTex = thumb:CreateTexture(nil, "OVERLAY")
+    thumbTex:SetPoint("TOPRIGHT", 0, 0)
+    thumbTex:SetPoint("BOTTOMRIGHT", 0, 0)
+    thumbTex:SetWidth(3)
+    thumbTex:SetColorTexture(unpack(C.accent))
+
+    local function MaxScroll()
+        return math.max(0, (content:GetHeight() or 1) - (scroll:GetHeight() or 1))
+    end
+
+    local function ScrollTo(value)
+        scroll:SetVerticalScroll(math.max(0, math.min(MaxScroll(), value)))
+        scroll:UpdateBar()
+    end
+
+    function scroll:UpdateBar()
+        local viewH    = self:GetHeight() or 1
+        local totalH   = content:GetHeight() or 1
+        local maxScrol = math.max(0, totalH - viewH)
+        if self:GetVerticalScroll() > maxScrol then self:SetVerticalScroll(maxScrol) end
+        if maxScrol <= 0 then
+            bar:Hide()
+            return
+        end
+        bar:Show()
+        local thumbH = math.max(20, viewH * math.min(1, viewH / totalH))
+        local travel = viewH - thumbH
+        thumb:SetHeight(thumbH)
+        thumb:ClearAllPoints()
+        thumb:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0,
+                       -((self:GetVerticalScroll() / maxScrol) * travel))
+        self.thumbTravel = travel
+    end
+
+    -- Cursor position comes back at the root scale and has to be divided by the
+    -- frame's effective scale before it can be compared with anything measured off
+    -- the frame. Skipping that makes the drag track the cursor at the wrong speed on
+    -- any UI scale other than 1.
+    local function CursorY()
+        local _, y = GetCursorPosition()
+        return y / (thumb:GetEffectiveScale() or 1)
+    end
+
+    local function OnDrag(self)
+        local travel = scroll.thumbTravel or 0
+        if travel <= 0 then return end
+        ScrollTo(self.grabScroll + (self.grabY - CursorY()) * (MaxScroll() / travel))
+    end
+
+    thumb:SetScript("OnMouseDown", function(self)
+        self.grabY      = CursorY()
+        self.grabScroll = scroll:GetVerticalScroll()
+        thumbTex:SetColorTexture(1, 1, 1, 0.9)
+        self:SetScript("OnUpdate", OnDrag)
+    end)
+    -- OnHide as well as OnMouseUp: releasing outside the frame does not always
+    -- deliver OnMouseUp, and a leftover OnUpdate would drag the list around forever.
+    local function EndDrag(self)
+        self:SetScript("OnUpdate", nil)
+        thumbTex:SetColorTexture(unpack(C.accent))
+    end
+    thumb:SetScript("OnMouseUp", EndDrag)
+    thumb:SetScript("OnHide", EndDrag)
+
+    bar:SetScript("OnMouseDown", function()
+        local top, bot, y = thumb:GetTop(), thumb:GetBottom(), CursorY()
+        if top and bot and y <= top and y >= bot then return end
+        ScrollTo(scroll:GetVerticalScroll()
+                 + ((top and y > top) and -(scroll:GetHeight() or 1) or (scroll:GetHeight() or 1)))
+    end)
+
+    -- If the content frame is still sitting at zero when the scroll frame gets its
+    -- real size, give it that size. A frame positioned by anchors measures 0 until a
+    -- layout pass has run, which is the "the list is empty until I click a second
+    -- time" bug the other addons hit three times between them.
+    scroll:SetScript("OnSizeChanged", function(self)
+        if (self.content:GetWidth() or 0) <= 1 then
+            self.content:SetWidth(self:GetWidth() or 0)
+        end
+        self:UpdateBar()
+    end)
+
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        local viewH = self:GetHeight() or 1
+        local maxScrol = math.max(0, (content:GetHeight() or 1) - viewH)
+        self:SetVerticalScroll(math.max(0, math.min(maxScrol, self:GetVerticalScroll() - delta * 34)))
+        self:UpdateBar()
+    end)
+
+    return scroll
 end
 
 -- A scrolling multi-line text box. Used for both halves of the profile tab: one to
@@ -413,6 +543,13 @@ end
 
 local function RefreshCards()
     local rows = NSU.Scan()
+    -- The scroll child is sized from the row count rather than from the catalog, so
+    -- the bar appears exactly when the list actually overflows. Set before the cards
+    -- are anchored, since they anchor to its edges.
+    local content = panels.addons.list
+    content:SetWidth(panels.addons.scroll:GetWidth())
+    content:SetHeight(math.max(1, #rows * CARD_H))
+
     for i, row in ipairs(rows) do
         local card = cardPool[i]
         if not card then
@@ -526,17 +663,22 @@ local function RefreshCards()
     end
 
     for i = #rows + 1, #cardPool do cardPool[i]:Hide() end
+    panels.addons.scroll:UpdateBar()
 end
 
 local function BuildAddonsTab(parent)
     local tab = CreateFrame("Frame", nil, parent)
     tab:SetAllPoints()
 
-    local list = CreateFrame("Frame", nil, tab)
-    list:SetPoint("TOPLEFT", 12, -8)
-    list:SetPoint("TOPRIGHT", -12, -8)
-    list:SetHeight(#NSU.catalog * CARD_H)
-    tab.list = list
+    -- The footer is laid out FIRST and pinned to the bottom of the tab, then the
+    -- roster fills whatever is left. It used to be the other way round - the roster
+    -- was as tall as the catalog and the footer hung off its bottom edge - so every
+    -- addon added to the catalog pushed the checkbox and the hint further down, and
+    -- the seventh pushed them out of the window entirely.
+    local hint = Label(tab, "Left click the minimap button for this window. Right click it for a menu straight to any addon.", "GameFontNormalSmall", C.faint)
+    hint:SetPoint("BOTTOMLEFT", 14, 10)
+    hint:SetWidth(CONTENT_W - 30)
+    hint:SetJustifyH("LEFT")
 
     local consolidate = Check(tab, "Use one minimap button (hide the others)",
         function() return NSU.db.consolidate end,
@@ -549,14 +691,18 @@ local function BuildAddonsTab(parent)
             end
         end,
         "Hides the minimap button belonging to every other nugs addon, leaving this one. Their buttons come straight back if you switch this off.")
-    consolidate:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 2, -10)
-    consolidate:SetPoint("RIGHT", list, "RIGHT", -2, 0)
+    consolidate:SetPoint("BOTTOMLEFT", hint, "TOPLEFT", 0, 8)
+    consolidate:SetPoint("RIGHT", tab, "RIGHT", -14, 0)
     tab.consolidate = consolidate
 
-    local hint = Label(tab, "Left click the minimap button for this window. Right click it for a menu straight to any addon.", "GameFontNormalSmall", C.faint)
-    hint:SetPoint("TOPLEFT", consolidate, "BOTTOMLEFT", 0, -8)
-    hint:SetWidth(CONTENT_W - 30)
-    hint:SetJustifyH("LEFT")
+    -- Whatever is left between the tab strip and the footer. The roster scrolls
+    -- inside it, so the catalog can grow without the window having to.
+    local scroll = ScrollArea(tab)
+    scroll:SetPoint("TOPLEFT", 12, -8)
+    scroll:SetPoint("TOPRIGHT", -12, -8)
+    scroll:SetPoint("BOTTOM", consolidate, "TOP", 0, 10)
+    tab.scroll = scroll
+    tab.list = scroll.content
 
     return tab
 end
@@ -886,6 +1032,21 @@ function NSU.RefreshHub()
     end
     if undoButton then undoButton:SetGrey(not NSU.db.backup) end
 end
+
+--------------------------------------------------------------------------------
+-- Combat
+--
+-- Closes when a fight starts, and does not come back on its own.
+--
+-- There is no anchor here and nothing on screen to get wrong - this window closes for
+-- consistency with the other four rather than for a reason of its own. A hub that
+-- stayed open while everything it launches closed would be the odd one out.
+--------------------------------------------------------------------------------
+local combatWatch = CreateFrame("Frame")
+combatWatch:RegisterEvent("PLAYER_REGEN_DISABLED")
+combatWatch:SetScript("OnEvent", function()
+    if window and window:IsShown() then window:Hide() end
+end)
 
 function NSU.ToggleHub(tab)
     if not window then BuildWindow() end

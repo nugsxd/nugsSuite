@@ -65,7 +65,7 @@ NSU.catalog = {
         folder     = "nugsRaidReady",
         title      = "nugsRaidReady",
         notes      = "Raid addon, consumable and character readiness checks.",
-        slash      = "/rr",
+        slash      = "/nrr",
         slashKey   = "RAIDREADY",
         dbName     = "RaidReadyDB",
     },
@@ -73,7 +73,7 @@ NSU.catalog = {
         folder     = "nugsCastBars",
         title      = "nugsCastBars",
         notes      = "Cast bars for you, your target, focus, pet and bosses.",
-        slash      = "/ncb",
+        slash      = "/ncast",
         slashKey   = "NUGSCASTBARS",
         settings   = "nugsCastBars",
         dbName     = "nugsCastBarsDB",
@@ -83,7 +83,7 @@ NSU.catalog = {
         folder     = "nugsComboBar",
         title      = "nugsComboBar",
         notes      = "Your class resource drawn as configurable pips.",
-        slash      = "/ncombo",
+        slash      = "/ncb",
         slashKey   = "NUGSCOMBOBAR",
         settings   = "nugsComboBar",
         dbName     = "nugsComboBarDB",
@@ -112,6 +112,17 @@ NSU.catalog = {
         settings   = "nugsAuras",
         dbName     = "nugsAurasDB",
         charDbName = "nugsAurasCharDB",
+    },
+    {
+        folder     = "nugsCombatText",
+        title      = "nugsCombatText",
+        -- Not released yet; same reasoning as nugsAuras above. Drop this line on
+        -- release.
+        comingSoon = true,
+        notes      = "Floating combat text, with ability icons and crit styling.",
+        slash      = "/nct",
+        slashKey   = "NUGSCOMBATTEXT",
+        dbName     = "nugsCombatTextDB",
     },
     {
         folder     = "nugsDeathNote",
@@ -225,9 +236,15 @@ function NSU.Scan()
                          and C_AddOns.IsAddOnLoaded(found.index)) or false,
             version   = found and found.version or nil,
             reg       = registry[entry.folder],
-            -- Only meaningful when it is not installed. Anyone who already has a
-            -- build of it - the author, a tester - sees it as a normal entry.
-            comingSoon = entry.comingSoon and (found == nil) or false,
+            -- An authoring flag: it means "not published", which stays true whether
+            -- or not this machine happens to have a copy.
+            --
+            -- It used to be suppressed once the addon was installed, on the grounds
+            -- that the author and testers should see a normal entry. That was wrong
+            -- in both directions: it hid the one fact that matters about a
+            -- pre-release build, and it meant the person best placed to notice a
+            -- stale flag was the only one who never saw it.
+            comingSoon = entry.comingSoon or false,
         }
         list[#list + 1] = row
     end
@@ -252,10 +269,14 @@ end
 function NSU.CountInstalled()
     local installed, available = 0, 0
     for _, row in ipairs(NSU.Scan()) do
-        if row.installed then
+        -- An unreleased addon is out of both numbers, installed or not. A
+        -- pre-release copy on the author's machine counting as "1 of 6" would be
+        -- claiming a total nobody else can reach.
+        if row.comingSoon then                      -- luacheck: ignore
+        elseif row.installed then
             installed = installed + 1
             available = available + 1
-        elseif not row.comingSoon then
+        else
             available = available + 1
         end
     end

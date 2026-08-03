@@ -3,6 +3,30 @@
 Bump `## Version:` in `nugsSuite.toc` with every change so the in-game header
 reflects the loaded build.
 
+## 0.2.7
+
+- **Fixed: the roster pushed the minimap checkbox out of the bottom of the window.**
+  The list was as tall as the catalog and the footer hung off its bottom edge, so
+  every addon added to the catalog shoved the checkbox and the hint further down -
+  and the seventh shoved them clean outside. The footer is pinned to the window now
+  and the roster scrolls in what is left, with a bar you can grab, so the catalog can
+  keep growing without the window having to.
+- The window is a little taller, since the roster is what it is for.
+- **nugsCombatText joins the roster**, marked coming soon: floating combat text with
+  ability icons, per-school colours and crit styling, built against what the 12.0
+  client will actually hand an addon.
+- **Coming soon now means coming soon even if you have a copy.** The flag used to be
+  suppressed once an addon was installed, so the author and testers - the people best
+  placed to notice a stale one - were the only ones who never saw it. An unreleased
+  addon is also out of the installed count now, since a pre-release build sitting on
+  one machine should not claim a total nobody else can reach.
+- **The hub closes when a fight starts**, and does not come back on its own. There is
+  no anchor here and nothing on screen to get wrong - it closes for consistency with
+  the other four, since a hub that stayed open while everything it launches closed
+  would be the odd one out.
+- The roster and the right-click menu follow the renamed commands: nugsRaidReady is
+  `/nrr`, nugsCastBars is `/ncast`, and nugsComboBar has taken `/ncb`.
+
 ## 0.2.6 — 2026-07-31
 
 - **`/nugs cpu`.** Prints memory and, when Blizzard's script profiler is running, CPU
