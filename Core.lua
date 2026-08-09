@@ -114,6 +114,16 @@ NSU.catalog = {
         charDbName = "nugsAurasCharDB",
     },
     {
+        folder     = "nugsBuffAlert",
+        title      = "nugsBuffAlert",
+        notes      = "Text and icon alerts when a buff or proc comes up.",
+        slash      = "/nba",
+        slashKey   = "NUGSBUFFALERT",
+        settings   = "nugsBuffAlert",
+        dbName     = "nugsBuffAlertDB",
+        charDbName = "nugsBuffAlertCharDB",
+    },
+    {
         folder     = "nugsCombatText",
         title      = "nugsCombatText",
         -- Not released yet; same reasoning as nugsAuras above. Drop this line on

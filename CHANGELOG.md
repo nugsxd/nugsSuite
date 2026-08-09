@@ -3,6 +3,20 @@
 Bump `## Version:` in `nugsSuite.toc` with every change so the in-game header
 reflects the loaded build.
 
+## 0.2.9
+
+- **Ready for patch 12.1.** The .toc declares `120007, 120100`, so this is current
+  on live and on the 12.1 PTR at once rather than being flagged out of date on one of
+  them. Nothing here uses an API that 12.1 removes, and the unit calls that begin
+  returning secret values in 12.1 are guarded - a release check now enforces both, so
+  it stays true.
+
+## 0.2.8
+
+- **nugsBuffAlert is out.** It is no longer listed as coming soon, so the launcher
+  links to its CurseForge page and treats it as an addon you can actually install.
+  Text and icon alerts the moment a buff or proc comes up.
+
 ## 0.2.7
 
 - **Fixed: the roster pushed the minimap checkbox out of the bottom of the window.**
