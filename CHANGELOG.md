@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.10
+
+- Now built for patch 12.1 only. 12.1 is live, and listing the previous patch
+  alongside it claimed support for a client nobody is on any more.
+
 Bump `## Version:` in `nugsSuite.toc` with every change so the in-game header
 reflects the loaded build.
 

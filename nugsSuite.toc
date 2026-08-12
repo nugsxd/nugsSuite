@@ -1,8 +1,8 @@
-## Interface: 120007, 120100
+## Interface: 120100
 ## Title: nugsSuite
 ## Notes: One minimap button for every nugs addon.|nLaunch any of them, see what you have installed, and export or import|nall of their settings as a single shareable string.|nCreated by nugs.
 ## Author: nugs
-## Version: 0.2.9
+## Version: 0.2.10
 ## IconTexture: Interface\AddOns\nugsSuite\icon
 
 # NOTE: if the addon list shows a blank icon, this BLP is not loading on your
