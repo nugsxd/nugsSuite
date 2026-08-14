@@ -102,10 +102,6 @@ NSU.catalog = {
     {
         folder     = "nugsAuras",
         title      = "nugsAuras",
-        -- Not released yet. Listed anyway, because the roster exists to show what
-        -- the suite is, and showing it as merely "not installed" would send people
-        -- looking for a download that is not there. Drop this line on release.
-        comingSoon = true,
         notes      = "Free-floating buff and debuff groups you place yourself.",
         slash      = "/na",
         slashKey   = "NUGSAURAS",
@@ -126,8 +122,9 @@ NSU.catalog = {
     {
         folder     = "nugsCombatText",
         title      = "nugsCombatText",
-        -- Not released yet; same reasoning as nugsAuras above. Drop this line on
-        -- release.
+        -- Not released yet. Listed anyway, because the roster exists to show what the
+        -- suite is, and showing it as merely "not installed" would send people looking
+        -- for a download that is not there. Drop this line on release.
         comingSoon = true,
         notes      = "Floating combat text, with ability icons and crit styling.",
         slash      = "/nct",
@@ -137,8 +134,7 @@ NSU.catalog = {
     {
         folder     = "nugsDeathNote",
         title      = "nugsDeathNote",
-        -- Not released yet; same reasoning as nugsAuras above. Drop this line on
-        -- release.
+        -- Not released yet; same reasoning as nugsCombatText above.
         comingSoon = true,
         notes      = "Logs who died on every pull, and lets officers write down why.",
         slash      = "/ndn",
