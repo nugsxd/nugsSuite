@@ -1,9 +1,9 @@
-## Interface: 120100
+## Interface: 120105, 16001
 ## Title: nugsSuite
 ## Category: nugsAddons
 ## Notes: One minimap button for every nugs addon.|nLaunch any of them, see what you have installed, and export or import|nall of their settings as a single shareable string.|nCreated by nugs.
 ## Author: nugs
-## Version: 0.2.11
+## Version: 0.5.0
 ## IconTexture: Interface\AddOns\nugsSuite\icon
 
 # NOTE: if the addon list shows a blank icon, this BLP is not loading on your
@@ -24,6 +24,8 @@
 # game flags this addon as "out of date". Find it with:  /run print((select(4,GetBuildInfo())))
 
 
+nugsProfile.lua
+nugsMove.lua
 Core.lua
 Serialize.lua
 Profiles.lua

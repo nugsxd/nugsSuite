@@ -180,8 +180,21 @@ end
 NSU.CopyDefaults = CopyDefaults
 
 local function InitDB()
-    nugsSuiteDB = CopyDefaults(nugsSuiteDB or {}, NSU.defaults)
-    NSU.db = nugsSuiteDB
+    -- Per character, like every other converted addon. The hub's own settings are
+    -- small, but "consolidate the minimap buttons" is as much a per-character
+    -- decision as anything else, and the hub arguing for the account-wide model it
+    -- exists to replace would be an odd thing to explain.
+    NSU.db = NSU.Profile:Init({
+        global   = "nugsSuiteDB",
+        defaults = NSU.defaults,
+        onApply  = function()
+            -- Named hooks that actually exist, checked rather than assumed: a call to
+            -- a nil global here would throw inside a profile copy and leave the
+            -- settings half applied.
+            if NSU.SetMinimapShown then NSU.SetMinimapShown(not NSU.db.minimapHidden) end
+            if NSU.ApplyConsolidation then NSU.ApplyConsolidation() end
+        end,
+    })
 end
 
 --------------------------------------------------------------------------------
@@ -272,6 +285,81 @@ end
 -- How many are installed, and how many there are to install. An addon that has not
 -- been released does not count towards the total - otherwise somebody who owns
 -- every published nugs addon would still be told they were missing one.
+--------------------------------------------------------------------------------
+-- Per-character settings
+--
+-- Every converted addon publishes its own profile object in the registry, so this
+-- is one window driving all of them rather than each addon growing a copy of the
+-- same UI. An addon that has not been converted simply has no Profile on its entry
+-- and is left out - the suite is recommended, never required, and it cannot assume
+-- what version of anything is installed alongside it.
+--------------------------------------------------------------------------------
+
+-- Every loaded addon that keeps per-character settings, this one included.
+function NSU.ProfileAddons()
+    local registry = _G.nugsSuiteRegistry or {}
+    -- This addon first, and by hand: the suite does not register itself with itself,
+    -- so walking the registry alone would quietly leave the hub's own settings out of
+    -- an action called "copy everything".
+    local out = { { folder = "nugsSuite", title = "nugsSuite", profile = NSU.Profile } }
+    for _, entry in ipairs(NSU.catalog) do
+        local reg = registry[entry.folder]
+        if reg and reg.Profile and reg.Profile.Characters then
+            out[#out + 1] = { folder = entry.folder, title = entry.title,
+                              profile = reg.Profile }
+        end
+    end
+    return out
+end
+
+-- Every character ANY converted addon has settings for.
+--
+-- Merged across addons rather than read from one, because they are converted one at
+-- a time: a character that has logged in since nugsAuras was converted but not since
+-- nugsCastBars was would be missing from one of them, and the list you pick from
+-- should be your characters, not the intersection of what happens to be recorded.
+function NSU.ProfileCharacters()
+    local seen, out = {}, {}
+    for _, addon in ipairs(NSU.ProfileAddons()) do
+        for _, char in ipairs(addon.profile:Characters()) do
+            if not seen[char.key] then
+                seen[char.key] = true
+                out[#out + 1] = char
+            end
+        end
+    end
+    table.sort(out, function(a, b)
+        if a.current ~= b.current then return a.current end
+        return (a.name or "") < (b.name or "")
+    end)
+    return out
+end
+
+-- Copy one character's settings into this one, across every converted addon.
+--
+-- Returns how many addons it wrote and how many had nothing stored for that
+-- character. The second number matters: silently doing nothing for half the addons
+-- would look like the copy had worked.
+function NSU.CopyEverythingFrom(key)
+    local copied, missing = 0, 0
+    for _, addon in ipairs(NSU.ProfileAddons()) do
+        if addon.profile:CopyFrom(key) then copied = copied + 1 else missing = missing + 1 end
+    end
+    return copied, missing
+end
+
+function NSU.CopyEverythingToAll()
+    local addons, characters = 0, 0
+    for _, addon in ipairs(NSU.ProfileAddons()) do
+        local written = addon.profile:CopyToAll()
+        if written > 0 then
+            addons = addons + 1
+            characters = math.max(characters, written)
+        end
+    end
+    return addons, characters
+end
+
 function NSU.CountInstalled()
     local installed, available = 0, 0
     for _, row in ipairs(NSU.Scan()) do
@@ -383,6 +471,9 @@ events:SetScript("OnEvent", function(_, event, arg1)
         InitDB()
         if NSU.InitOptions then NSU.InitOptions() end
     elseif event == "PLAYER_LOGIN" then
+        -- Bind the profile if the player was not readable at ADDON_LOADED.
+        NSU.Profile:Attach()
+
         if NSU.InitMinimap then NSU.InitMinimap() end
         -- Consolidation is re-applied at login because the addons it hides only
         -- build their buttons at their own PLAYER_LOGIN, which may run after this.

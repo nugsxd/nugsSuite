@@ -139,8 +139,12 @@ local function HeaderBar(f, titleText, tailText)
     header:SetHeight(30)
     header:EnableMouse(true)
     header:RegisterForDrag("LeftButton")
-    header:SetScript("OnDragStart", function() f:StartMoving() end)
-    header:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
+
+    -- Dragging, and the guarantee that a move ends: from the shared nugsMove.lua,
+    -- which asserts that a frame nobody is holding is not moving rather than closing
+    -- one more route by which a move could be left running. Read the note at the top
+    -- of that file before changing anything here.
+    NSU.InstallMove(f, { label = "the settings window", handle = header, body = true })
 
     local accent = header:CreateTexture(nil, "OVERLAY")
     accent:SetPoint("BOTTOMLEFT", 0, 0)
@@ -848,6 +852,139 @@ end
 local LOGO = "Interface\\AddOns\\nugsSuite\\logo"
 local LOGO_SIZE = 156
 
+--------------------------------------------------------------------------------
+-- Characters
+--
+-- The settings model, in one screen: every character has its own settings, and this
+-- is where you copy them about.
+--
+-- Deliberately not a profile PICKER. A picker implies characters point at a shared
+-- thing, which is the model this replaced - two characters sharing a profile means
+-- editing one edits both, and that is the complaint that started all of this. Every
+-- control here performs a one-time copy and then gets out of the way.
+--------------------------------------------------------------------------------
+local charRows = {}
+
+local function RefreshCharactersTab()
+    for _, row in ipairs(charRows) do row:Refresh() end
+end
+
+local function BuildCharactersTab(parent)
+    local tab = CreateFrame("Frame", nil, parent)
+    tab:SetAllPoints()
+
+    local y = -10
+
+    local header = SectionHeader(tab, "Your characters")
+    header:SetPoint("TOPLEFT", 12, y)
+    y = y - 20
+
+    local hint = Label(tab, "Every character keeps its own settings for every nugs addon. "
+        .. "Nothing here is shared, so a change you make on one character can never reach "
+        .. "another - copying is something you do, not something you leave switched on.",
+        "GameFontNormalSmall", C.faint)
+    hint:SetPoint("TOPLEFT", 12, y)
+    hint:SetWidth(CONTENT_W - 12)
+    hint:SetJustifyH("LEFT")
+    hint:SetWordWrap(true)
+    y = y - 40
+
+    -- One row per character, built once and refreshed, because the roster only grows
+    -- when a character logs in - which cannot happen while this window is open.
+    local list = NSU.ProfileCharacters()
+    for _, char in ipairs(list) do
+        local row = CreateFrame("Frame", nil, tab)
+        row:SetPoint("TOPLEFT", 14, y)
+        row:SetSize(CONTENT_W - 28, 24)
+
+        local name = Label(row, "", "GameFontNormalSmall")
+        name:SetPoint("LEFT", 0, 0)
+
+        local copy = Button(row, "Copy to this character", 160, 20, function()
+            local copied, missing = NSU.CopyEverythingFrom(char.key)
+            NSU.Print(("Copied %s's settings into %d addon%s.")
+                :format(char.name or char.key, copied, copied == 1 and "" or "s"))
+            -- Said out loud rather than swallowed: an addon that had nothing stored
+            -- for that character was skipped, and a silent skip looks like a copy
+            -- that did not work.
+            if missing > 0 then
+                NSU.Print(("%d had nothing stored for them and were left alone.")
+                    :format(missing))
+            end
+            RefreshCharactersTab()
+        end)
+        copy:SetPoint("RIGHT", 0, 0)
+
+        row.Refresh = function()
+            local label = char.name or char.key
+            if char.realm and char.realm ~= "" then
+                label = label .. "  |cff707070" .. char.realm .. "|r"
+            end
+            if char.class then label = label .. "  |cff707070" .. char.class .. "|r" end
+            if char.current then
+                label = label .. "  |cffffd166(this character)|r"
+                copy:Hide()
+            else
+                copy:Show()
+            end
+            name:SetText(label)
+        end
+        row:Refresh()
+
+        charRows[#charRows + 1] = row
+        y = y - 26
+    end
+
+    if #list <= 1 then
+        local alone = Label(tab, "No other characters yet. Log in on one and it will "
+            .. "appear here, having started from this character's settings.",
+            "GameFontNormalSmall", C.faint)
+        alone:SetPoint("TOPLEFT", 14, y - 4)
+        alone:SetWidth(CONTENT_W - 28)
+        alone:SetJustifyH("LEFT")
+        alone:SetWordWrap(true)
+        y = y - 40
+    end
+
+    y = y - 14
+
+    local pushHeader = SectionHeader(tab, "Push this character's setup out")
+    pushHeader:SetPoint("TOPLEFT", 12, y)
+    y = y - 22
+
+    local pushHint = Label(tab, "A one-time copy onto every other character, and onto "
+        .. "the template that new characters start from. Neither is a link: they will "
+        .. "carry on being their own from the moment it finishes.",
+        "GameFontNormalSmall", C.faint)
+    pushHint:SetPoint("TOPLEFT", 12, y)
+    pushHint:SetWidth(CONTENT_W - 12)
+    pushHint:SetJustifyH("LEFT")
+    pushHint:SetWordWrap(true)
+    y = y - 40
+
+    local toAll = Button(tab, "Copy to every character", 180, 22, function()
+        local addons, characters = NSU.CopyEverythingToAll()
+        NSU.Print(("Copied this character's settings across %d addon%s to %d other character%s.")
+            :format(addons, addons == 1 and "" or "s",
+                    characters, characters == 1 and "" or "s"))
+        RefreshCharactersTab()
+    end)
+    toAll:SetPoint("TOPLEFT", 14, y)
+
+    local saveTemplate = Button(tab, "Save as the starting point", 180, 22, function()
+        local count = 0
+        for _, addon in ipairs(NSU.ProfileAddons()) do
+            addon.profile:SaveTemplate()
+            count = count + 1
+        end
+        NSU.Print(("Saved this character's settings as the starting point for new "
+                   .. "characters, across %d addon%s."):format(count, count == 1 and "" or "s"))
+    end)
+    saveTemplate:SetPoint("LEFT", toAll, "RIGHT", 8, 0)
+
+    return tab
+end
+
 local function BuildAboutTab(parent)
     local tab = CreateFrame("Frame", nil, parent)
     tab:SetAllPoints()
@@ -929,9 +1066,10 @@ end
 -- the LANDING tab once - see ToggleHub. A launcher that opens on its own about page
 -- every time costs a click on the thing people opened it for.
 local TABS = {
-    { key = "about",    label = "About" },
-    { key = "addons",   label = "Addons" },
-    { key = "profiles", label = "Profiles" },
+    { key = "about",      label = "About" },
+    { key = "addons",     label = "Addons" },
+    { key = "characters", label = "Characters" },
+    { key = "profiles",   label = "Profiles" },
 }
 
 local function SelectTab(key)
@@ -1008,6 +1146,7 @@ local function BuildWindow()
     panels.addons   = BuildAddonsTab(body)
     panels.profiles = BuildProfilesTab(body)
     panels.about    = BuildAboutTab(body)
+    panels.characters = BuildCharactersTab(body)
 
     tinsert(UISpecialFrames, "nugsSuiteHub")
     window = f

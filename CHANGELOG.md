@@ -1,5 +1,73 @@
 # Changelog
 
+## 0.5.0
+
+- **Runs on WoW Forever.** The addon now declares both 12.1.5 and 1.60.1, so one build
+  works on retail and on Forever.
+
+  Forever turned out to be the modern engine wearing a 1.x version number — 271 `C_`
+  namespaces, secret values, duration objects, all of it. What it does *not* have is
+  the deprecated globals retail still ships as shims, and this addon was already
+  written against the namespaced forms.
+
+
+## 0.4.1
+
+- **Updated for patch 12.1.5.** No behaviour changes — this marks the addon as current
+  so the client stops reporting it out of date.
+
+
+## 0.4.0
+
+- **Every movable window in this addon now uses one shared drag installer.**
+
+  "The window sticks to the cursor" / "the window jumps when I grab the title bar"
+  has been fixed four times across this family and come back every time. Each fix
+  named a *path* by which a move could be left running - hidden mid-drag, a guard
+  thrown away by a later `SetScript`, a click swallowed by a dropdown - closed that
+  one path, and lived in its own handler, leaving every other frame untouched.
+
+  The shared installer names no path. It asserts the thing that is true whatever the
+  path was: **a frame nobody is holding must not be moving**, re-checked every frame.
+  Anything that survives - known or unknown - is over on the next one. Starting a move
+  also stops any previous one first, because `StartMoving` on an already-moving frame
+  re-bases the move onto the cursor, which is exactly what the jump looked like.
+
+- **And it measures.** If a frame ever moves by an amount the cursor did not ask for,
+  it now says so in chat with the numbers - how far, what it was anchored to, whether
+  a move was already running, and what was under the cursor. Silent otherwise.
+
+
+## 0.3.1
+
+- **Fixed a drag that could stick to the cursor.** A frame hidden between
+  `StartMoving` and `StopMovingOrSizing` never receives `OnDragStop` - the game does
+  not deliver drag scripts to a hidden frame - so the move stayed live and the frame
+  followed the cursor with no button held. Windows here hide themselves on a pull and
+  when anchors are locked, so being hidden mid-drag was never a corner case.
+
+  Every movable frame now stops moving when hidden. The minimap button drags from an
+  OnUpdate rather than StartMoving and had the same bug by a different route; it drops
+  the handler on hide instead.
+
+  Found in nugsAuras from a real report, then found in every addon in the family by a
+  new `HIDDENMOVE` rule in the drag checker.
+
+## 0.3.0
+
+- **A Characters tab.** Every character keeps its own settings for every nugs addon,
+  and this is where you copy them about: pull another character's setup onto this
+  one, push this one out to all of them, or save it as the starting point new
+  characters begin from.
+  - Deliberately not a profile picker. A picker implies characters point at a shared
+    thing, which is the model this replaces - two characters sharing a profile means
+    editing one edits both. Every control here is a one-time copy.
+  - It drives every converted addon at once, because each publishes its own profile
+    through the registry. Addons not yet converted are simply absent from it.
+- **The hub's own settings are per character too.** Whether to consolidate the minimap
+  buttons is as much a per-character decision as anything else, and the hub arguing
+  for the account-wide model it exists to replace would be odd to explain.
+
 ## 0.2.11
 
 - Grouped under a **nugsAddons** category in the game's AddOns list, so the whole
